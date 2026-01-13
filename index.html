@@ -41,6 +41,7 @@
             height: 100vh;
             width: 100%;
             z-index: 1;
+            background-color: #f3f4f6; /* רקע למקרה שהטעינה איטית */
         }
 
         .sidebar {
@@ -270,7 +271,21 @@
             { city: "באר שבע", address: "רחוב הקוצר 15", area: "דרום", coords: [31.2432, 34.8028], hours: "א'-ג': 10:00-23:00, ד'-ה': 10:00-00:00", rating: 4.1 },
             { city: "בית שמש", address: "קניון נעימי, שד' הגליל 1", area: "ירושלים והסביבה", coords: [31.7554, 34.9921], hours: "א'-ג': 10:00-23:00, ד'-ה': 10:00-00:00", rating: 4.5 },
             { city: "ביתר עילית", address: "מרכז מסחרי לב ההר", area: "ירושלים והסביבה", coords: [31.6982, 35.1089], hours: "א'-ג': 10:00-23:00, ד'-ה': 10:00-00:00", rating: 4.0 },
-            { city: "בני ברק", address: "רחוב הקישון 11", area: "מרכז", coords: [32.0975, 34.8301], hours: "א'-ג': 10:00-23:00, ד'-ה': 10:00-00:00", rating: 4.6 },
+            { 
+                city: "בני ברק", 
+                address: "רחוב הקישון 11, מול קניון איילון", 
+                area: "מרכז", 
+                coords: [32.0975, 34.8301], 
+                hours: "א'-ג': 10:00-23:00, ד'-ה': 10:00-00:00", 
+                rating: 4.6,
+                extra: {
+                    established: "דצמבר 2010",
+                    size: "כ-6,000 מ\"ר",
+                    parking: "יש צמודה",
+                    carts: "350",
+                    scanners: "350"
+                }
+            },
             { city: "ירושלים - גבעת שאול", address: "רחוב בית הדפוס 29", area: "ירושלים והסביבה", coords: [31.7912, 35.1925], hours: "24 שעות בימי חמישי", rating: 4.4 },
             { city: "ירושלים - שמגר", address: "רחוב שמגר 16", area: "ירושלים והסביבה", coords: [31.7954, 35.2102], hours: "א'-ג': 10:00-23:00, ד'-ה': 10:00-00:00", rating: 4.3 },
             { city: "ירושלים - תלפיות", address: "רחוב פייר קניג 26", area: "ירושלים והסביבה", coords: [31.7511, 35.2144], hours: "א'-ג': 10:00-23:00, ד'-ה': 10:00-00:00", rating: 4.2 },
@@ -293,9 +308,18 @@
         });
 
         // --- אתחול המפה ---
+        // הגדרת גבולות המפה לישראל בלבד
+        const southWest = L.latLng(29.0, 33.5);
+        const northEast = L.latLng(33.7, 36.0);
+        const israelBounds = L.latLngBounds(southWest, northEast);
+
         const map = L.map('map', {
-            zoomControl: false 
-        }).setView([31.9, 35.0], 8);
+            zoomControl: false,
+            maxBounds: israelBounds,       // הגבלת הגרירה לגבולות אלו
+            maxBoundsViscosity: 1.0,       // מונע גרירה מחוץ לגבולות לחלוטין (קשיח)
+            minZoom: 7,                    // מונע זום-אאוט רחוק מדי
+            zoomSnap: 0.5                  // מאפשר רמות זום עדינות יותר
+        }).setView([31.5, 34.8], 8.5);     // מיקום התחלתי מותאם
         
         L.control.zoom({ position: 'topleft' }).addTo(map);
 
@@ -305,14 +329,46 @@
             maxZoom: 20
         }).addTo(map);
 
-        // עדכון אייקון: דגל לבן עם מסגרת תכלת דקה
+        // --- הוספת מסכה להסתרת שאר העולם ---
+        // פוליגון שמכסה את כל העולם, עם "חור" מלבני סביב ישראל
+        const worldCoords = [
+            [90, -180],
+            [90, 180],
+            [-90, 180],
+            [-90, -180]
+        ];
+        
+        // הגדרת ה"חור" (האזור הגלוי) - טיפה רחב יותר מהגבולות החוסמים כדי לא לחתוך ערים בקצה
+        const israelHole = [
+            [33.8, 33.0], // צפון מערב
+            [33.8, 36.5], // צפון מזרח
+            [29.0, 36.5], // דרום מזרח
+            [29.0, 33.0]  // דרום מערב
+        ];
+
+        L.polygon([worldCoords, israelHole], {
+            color: '#f3f4f6', // צבע המסגרת (כמו רקע האתר)
+            fillColor: '#f3f4f6', // צבע המילוי
+            fillOpacity: 1, // אטימות מלאה - מסתיר את המפה שמתחת
+            stroke: false,
+            interactive: false // כדי לא להפריע לגרירה
+        }).addTo(map);
+
+        // עדכון אייקון: גודל דגל סטנדרטי (לא ענק) אך עם לוגו שממלא את כל שטח הדגל
         const createCustomIcon = () => L.divIcon({
             className: 'custom-div-icon',
-            // שימוש ב-text-stroke (נתמך ברוב הדפדפנים המודרניים) ליצירת מסגרת סביב האייקון
-            html: `<div style="filter: drop-shadow(2px 4px 4px rgba(0,0,0,0.4)); color:white; -webkit-text-stroke: 1.5px #1a9bd2; display:flex; justify-content:center; align-items:flex-end;"><i class="fas fa-flag" style="font-size:36px;"></i></div>`,
-            iconSize: [40, 40],
-            iconAnchor: [10, 38],
-            popupAnchor: [5, -35]
+            html: `<div style="position: relative; width: 50px; height: 50px; filter: drop-shadow(2px 4px 3px rgba(0,0,0,0.3));">
+                    <!-- מוט הדגל -->
+                    <div style="position: absolute; bottom: 0; left: 0; width: 4px; height: 100%; background-color: #1a9bd2; border-radius: 2px;"></div>
+                    <!-- גוף הדגל -->
+                    <div style="position: absolute; top: 2px; left: 3px; width: 47px; height: 34px; background-color: white; border: 1.5px solid #1a9bd2; border-left: none; border-radius: 0 4px 4px 0; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                        <!-- הלוגו ממלא את כל שטח הדגל (object-fit: cover וללא padding) -->
+                        <img src="https://i.ibb.co/Mkkwg3Kb/Screenshot-2026-01-12-at-12-54-47.png" alt="אושר עד" style="width: 100%; height: 100%; object-fit: fill;">
+                    </div>
+                   </div>`,
+            iconSize: [50, 50],
+            iconAnchor: [2, 50], // עוגן בתחתית המוט
+            popupAnchor: [25, -45]
         });
 
         // --- לוגיקה ---
@@ -336,6 +392,20 @@
             filteredBranches.forEach((branch) => {
                 const marker = L.marker(branch.coords, { icon: createCustomIcon() }).addTo(map);
                 
+                // בניית HTML למידע נוסף אם קיים
+                let extraInfoHtml = '';
+                if (branch.extra) {
+                    extraInfoHtml = `
+                        <div class="mb-3 p-2 bg-blue-50 rounded border border-blue-100 text-xs text-gray-700 grid grid-cols-2 gap-y-1 gap-x-2">
+                            ${branch.extra.established ? `<div><span class="font-bold text-[#0d1f43]">הקמה:</span> ${branch.extra.established}</div>` : ''}
+                            ${branch.extra.size ? `<div><span class="font-bold text-[#0d1f43]">גודל:</span> ${branch.extra.size}</div>` : ''}
+                            ${branch.extra.parking ? `<div><span class="font-bold text-[#0d1f43]">חניה:</span> ${branch.extra.parking}</div>` : ''}
+                            ${branch.extra.carts ? `<div><span class="font-bold text-[#0d1f43]">עגלות:</span> ${branch.extra.carts}</div>` : ''}
+                            ${branch.extra.scanners ? `<div class="col-span-2 border-t border-blue-100 pt-1 mt-1"><span class="font-bold text-[#0d1f43]">סורקים:</span> ${branch.extra.scanners}</div>` : ''}
+                        </div>
+                    `;
+                }
+
                 const popupContent = `
                     <div class="font-sans" dir="rtl">
                         <div class="h-32 bg-gray-200 bg-cover bg-center" style="background-image: url('${branch.image}')"></div>
@@ -347,6 +417,8 @@
                                 <i class="far fa-clock text-[#1a9bd2]"></i>
                                 <span>${branch.hours.substring(0, 25)}...</span>
                             </div>
+
+                            ${extraInfoHtml}
 
                             <a href="https://waze.com/ul?q=${encodeURIComponent('אושר עד ' + branch.city + ' ' + branch.address)}" target="_blank" 
                                class="block w-full text-center bg-[#1a9bd2] hover:bg-[#1580b0] text-white font-bold py-2 rounded-lg transition-colors shadow-md text-sm">
